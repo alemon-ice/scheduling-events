@@ -7,12 +7,14 @@ export async function up(knex: Knex) {
       .integer('id_room')
       .notNullable()
       .references('id')
-      .inTable('rooms');
+      .inTable('rooms')
+      .onDelete('CASCADE');
     table
       .integer('id_event')
       .notNullable()
       .references('id')
-      .inTable('events');
+      .inTable('events')
+      .onDelete('CASCADE');
   });
 }
 
