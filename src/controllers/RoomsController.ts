@@ -66,7 +66,6 @@ class RoomsController {
     const { id } = request.params;
 
     const deletedRoom = await knex('rooms').where('id', id).del();
-    console.log(deletedRoom);
 
     if (deletedRoom === 0) {
       return response.json('Room not exists.');
