@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import knex from '../database/connection';
-import { parseISO, startOfHour, format, isPast } from 'date-fns';
+import { parseISO, startOfHour, format, isPast, startOfDay, endOfDay } from 'date-fns';
 
 class EventsController {
   index = async (request: Request, response: Response) => {
@@ -8,6 +8,33 @@ class EventsController {
       .join('events', 'events.id', '=', 'rooms_events.id_event')
       .join('rooms', 'rooms.id', '=', 'rooms_events.id_room')
       .select('rooms.name AS room_name', 'rooms.building', 'events.*');
+
+    const serializedItems = events.map(event => {
+      return {
+        id_event: event.id,
+        building: event.building,
+        room_name: event.room_name,
+        event_name: event.name,
+        description: event.description,
+        date_time: format(event.date_time, "dd'/'MM'/'yyyy HH':'mm"),
+        responsible: event.responsible,
+      }
+    });
+
+    response.json(serializedItems);
+  }
+
+  eventsOfDay = async (request: Request, response: Response) => {
+
+    const { day = Date.now() } = request.query;
+
+    const searchDate = parseISO(day.toLocaleString());
+
+    const events = await knex('rooms_events')
+      .join('events', 'events.id', '=', 'rooms_events.id_event')
+      .join('rooms', 'rooms.id', '=', 'rooms_events.id_room')
+      .select('rooms.name AS room_name', 'rooms.building', 'events.*')
+      .whereBetween('date_time', [startOfDay(searchDate), endOfDay(searchDate)]);
 
     const serializedItems = events.map(event => {
       return {

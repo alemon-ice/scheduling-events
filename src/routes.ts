@@ -14,6 +14,7 @@ routes.put('/rooms/:id', roomsController.update);
 routes.delete('/rooms/:id', roomsController.delete);
 
 routes.get('/events', eventsController.index);
+routes.get('/events_day', eventsController.eventsOfDay);
 routes.post('/events', eventsController.create);
 routes.put('/events/:id', eventsController.update);
 routes.delete('/events/:id', eventsController.delete);
