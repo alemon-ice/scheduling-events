@@ -7,21 +7,56 @@ class EventsController {
     const events = await knex('rooms_events')
       .join('events', 'events.id', '=', 'rooms_events.id_event')
       .join('rooms', 'rooms.id', '=', 'rooms_events.id_room')
-      .select('rooms.name AS room_name', 'rooms.building', 'events.*');
+      .select([
+        knex.raw("group_concat(rooms.name) AS room_name"),
+        knex.raw("group_concat(rooms.building) AS building"),
+        'events.*'
+      ])
+      .groupBy('rooms_events.id_event')
+      .orderBy('date_time');
 
     const serializedItems = events.map(event => {
+      const buildingArray = event.building.split(',');
+      const roomNameArray = event.room_name.split(',');
+
+      const buildingsRooms = [];
+
+      for (let i = 0; i < buildingArray.length; i++) {
+        buildingsRooms.push({
+          building: buildingArray[i],
+          room: roomNameArray[i],
+        });
+      }
+
       return {
         id_event: event.id,
-        building: event.building,
-        room_name: event.room_name,
+        location: buildingsRooms,
         event_name: event.name,
         description: event.description,
-        date_time: format(event.date_time, "dd'/'MM'/'yyyy HH':'mm"),
+        date_time: format(event.date_time, "'Data: 'dd'/'MM'/'yyyy', Hora: 'HH':'mm"),
         responsible: event.responsible,
       }
     });
 
     response.json(serializedItems);
+  }
+
+  selectEvent = async (request: Request, response: Response) => {
+    const { id } = request.params;
+
+    const event = await knex('events').where('id', id).first();
+
+    if (!event) {
+      return response.send('Event does not exists.');
+    }
+
+    return response.json({
+      id_event: event.id,
+      event_name: event.name,
+      description: event.description,
+      date_time: format(event.date_time, "dd'/'MM'/'yyyy HH':'mm"),
+      responsible: event.responsible,
+    });
   }
 
   eventsOfDay = async (request: Request, response: Response) => {
@@ -33,17 +68,34 @@ class EventsController {
     const events = await knex('rooms_events')
       .join('events', 'events.id', '=', 'rooms_events.id_event')
       .join('rooms', 'rooms.id', '=', 'rooms_events.id_room')
-      .select('rooms.name AS room_name', 'rooms.building', 'events.*')
+      .select([
+        knex.raw("group_concat(rooms.name) AS room_name"),
+        knex.raw("group_concat(rooms.building) AS building"),
+        'events.*'
+      ])
+      .groupBy('rooms_events.id_event')
+      .orderBy('date_time')
       .whereBetween('date_time', [startOfDay(searchDate), endOfDay(searchDate)]);
 
     const serializedItems = events.map(event => {
+      const buildingArray = event.building.split(',');
+      const roomNameArray = event.room_name.split(',');
+
+      const buildingsRooms = [];
+
+      for (let i = 0; i < buildingArray.length; i++) {
+        buildingsRooms.push({
+          building: buildingArray[i],
+          room: roomNameArray[i],
+        });
+      }
+
       return {
         id_event: event.id,
-        building: event.building,
-        room_name: event.room_name,
+        location: buildingsRooms,
         event_name: event.name,
         description: event.description,
-        date_time: format(event.date_time, "dd'/'MM'/'yyyy HH':'mm"),
+        date_time: format(event.date_time, "'Data: 'dd'/'MM'/'yyyy', Hora: 'HH':'mm"),
         responsible: event.responsible,
       }
     });
@@ -52,7 +104,12 @@ class EventsController {
   }
 
   create = async (request: Request, response: Response) => {
-    const { name, description, date_time, responsible, rooms } = request.body;
+    const {
+      name,
+      description,
+      date_time,
+      responsible,
+      rooms } = request.body;
 
     const trx = await knex.transaction();
 
@@ -61,7 +118,7 @@ class EventsController {
 
     if (isPast(eventDateTime)) {
       await trx.rollback();
-      return response.json('This date is before the actual date and hour.');
+      return response.send('This date is before the actual date and hour.');
     }
 
     for (let i = 0; i < rooms.length; i++) {
@@ -75,7 +132,7 @@ class EventsController {
 
       if (findEventsInSameDate) {
         await trx.rollback();
-        return response.json('There is an event already booked in the same local for this date and time.');
+        return response.send('There is an event already booked in the same local for this date and time.');
       }
     }
 
@@ -101,12 +158,18 @@ class EventsController {
 
     await trx.commit();
 
-    return response.json({ message: 'Event created with success.' });
+    return response.send('Event created with success.');
   }
 
   update = async (request: Request, response: Response) => {
     const { id } = request.params;
-    const { name, description, date_time, responsible, rooms } = request.body;
+    const {
+      name,
+      description,
+      date_time,
+      responsible,
+      rooms
+    } = request.body;
 
     const trx = await knex.transaction();
 
@@ -114,7 +177,7 @@ class EventsController {
 
     if (!idExists) {
       await trx.rollback();
-      return response.status(400).json({ error: 'Event not exists.' });
+      return response.status(400).send('Event not exists.');
     }
 
     const parsedDateTime = parseISO(date_time);
@@ -122,7 +185,7 @@ class EventsController {
 
     if (isPast(eventDateTime)) {
       await trx.rollback();
-      return response.json('This date is before the actual date and hour.');
+      return response.send('This date is before the actual date and hour.');
     }
 
     for (let i = 0; i < rooms.length; i++) {
@@ -137,7 +200,7 @@ class EventsController {
 
       if (findEventsInSameDate) {
         await trx.rollback();
-        return response.json('There is an event already booked in the same local for this date and time.');
+        return response.send('There is an event already booked in the same local for this date and time.');
       }
     }
 
@@ -149,7 +212,7 @@ class EventsController {
 
     if (eventExists) {
       await trx.rollback();
-      return response.status(400).json({ error: 'Event already exists.' });
+      return response.status(400).send('Event already exists.');
     }
 
     const new_rooms_events = rooms.map((id_room: number) => {
@@ -174,7 +237,7 @@ class EventsController {
 
     await trx.commit();
 
-    return response.json(`Event updated with success.`);
+    return response.send('Event updated with success.');
   }
 
   delete = async (request: Request, response: Response) => {
@@ -184,14 +247,14 @@ class EventsController {
 
     const verify = await trx('events').where('id', id).del();
 
-    if (verify === 0) {
+    if (!verify) {
       await trx.rollback();
-      return response.json({ message: 'Event does not exists.' });
+      return response.send('Event does not exists.');
     }
 
     await trx.commit();
 
-    return response.json({ message: 'Event deleted with success.' });
+    return response.send('Event deleted with success.');
   }
 }
 

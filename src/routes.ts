@@ -10,6 +10,7 @@ const roomsController = new RoomsController();
 const eventsController = new EventsController();
 
 routes.get('/rooms', roomsController.index);
+routes.get('/rooms/:id', roomsController.selectRoom);
 routes.post('/rooms', celebrate({
   body: Joi.object().keys({
     name: Joi.string().required().max(50),
@@ -21,13 +22,16 @@ routes.put('/rooms/:id', roomsController.update);
 routes.delete('/rooms/:id', roomsController.delete);
 
 routes.get('/events', eventsController.index);
+routes.get('/events/:id', eventsController.selectEvent);
 routes.get('/events_day', eventsController.eventsOfDay);
 routes.post('/events', celebrate({
   body: Joi.object().keys({
     name: Joi.string().required().max(50),
     description: Joi.string().required().max(200),
     responsible: Joi.string().required().max(50),
-  })
+    date_time: Joi.string().required(),
+    rooms: Joi.array().required(),
+  }),
 }),
   eventsController.create);
 routes.put('/events/:id', eventsController.update);

@@ -3,7 +3,21 @@ import knex from '../database/connection';
 
 class RoomsController {
   index = async (request: Request, response: Response) => {
-    const rooms = await knex('rooms').select('rooms.*');
+    const rooms = await knex('rooms')
+      .select('rooms.*')
+      .orderBy('building');
+
+    return response.json(rooms);
+  }
+
+  selectRoom = async (request: Request, response: Response) => {
+    const { id } = request.params;
+
+    const rooms = await knex('rooms').where('id', id).first();
+
+    if (!rooms) {
+      return response.send('Id not exists.');
+    }
 
     return response.json(rooms);
   }
@@ -13,18 +27,21 @@ class RoomsController {
 
     const trx = await knex.transaction();
 
-    const roomExists = await trx('rooms').where('name', name).andWhere('building', building).first();
+    const roomExists = await trx('rooms')
+      .where('name', name)
+      .andWhere('building', building)
+      .first();
 
     if (roomExists) {
       await trx.rollback();
-      return response.status(400).json({ error: 'Room already exists.' });
+      return response.status(400).send('Room already exists.');
     }
 
     await trx('rooms').insert(request.body);
 
     await trx.commit();
 
-    return response.json(`Room created with success.`);
+    return response.send('Room created with success.');
   }
 
   update = async (request: Request, response: Response) => {
@@ -37,7 +54,7 @@ class RoomsController {
 
     if (!idExists) {
       await trx.rollback();
-      return response.status(400).json({ error: 'Room not exists.' });
+      return response.status(400).send('Room not exists.');
     }
 
     const roomExists = await trx('rooms')
@@ -49,7 +66,7 @@ class RoomsController {
 
     if (roomExists) {
       await trx.rollback();
-      return response.status(400).json({ error: 'Room already exists.' });
+      return response.status(400).send('Room already exists.');
     }
 
     await trx('rooms').where('id', id).update({
@@ -59,7 +76,7 @@ class RoomsController {
 
     await trx.commit();
 
-    return response.json(`Room updated with success.`);
+    return response.send('Room updated with success.');
   }
 
   delete = async (request: Request, response: Response) => {
@@ -68,10 +85,10 @@ class RoomsController {
     const deletedRoom = await knex('rooms').where('id', id).del();
 
     if (deletedRoom === 0) {
-      return response.json('Room not exists.');
+      return response.send('Room not exists.');
     }
 
-    return response.json('Room deleted with success.');
+    return response.send('Room deleted with success.');
   }
 }
 
